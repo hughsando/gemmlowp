@@ -18,7 +18,12 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#include <pthread.h>
+#ifdef _MSC_VER
+   #include "msvc_thread.h"
+ #else
+   #include <pthread.h>
+#endif
+
 
 #include <algorithm>
 #include <cassert>

@@ -24,7 +24,11 @@
 #ifndef GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 #define GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 
-#include <pthread.h>
+#ifdef _MSC_VER
+  #include "../internal/msvc_thread.h"
+#else
+  #include <pthread.h>
+#endif
 #include <cstdio>
 
 #ifndef GEMMLOWP_USE_STLPORT
@@ -104,7 +108,11 @@ struct AutoGlobalLock {
 //   2) It requires the compiler to assume that any value previously
 //     read from memory, may have changed. Thus it offers an alternative
 //     to using 'volatile' variables.
+#ifdef _MSC_VER
+inline void MemoryBarrier() { _ReadWriteBarrier(); }
+#else
 inline void MemoryBarrier() { asm volatile("" ::: "memory"); }
+#endif
 
 // Profiling definitions. Two paths: when profiling is enabled,
 // and when profiling is disabled.

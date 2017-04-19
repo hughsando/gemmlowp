@@ -19,8 +19,12 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
-#include <pthread.h>
-#include <unistd.h>
+#ifdef _MSC_VER
+  #include "msvc_thread.h"
+#else
+  #include <pthread.h>
+  #include <unistd.h>
+#endif
 #include <vector>
 
 #include "single_thread_gemm.h"
@@ -149,9 +153,16 @@ class BlockingCounter {
  public:
   BlockingCounter()
       : cond_(PTHREAD_COND_INITIALIZER),
-        mutex_(PTHREAD_MUTEX_INITIALIZER),
         count_(0),
-        initial_count_(0) {}
+        #ifndef _MSC_VER
+        mutex_(PTHREAD_MUTEX_INITIALIZER),
+        #endif
+        initial_count_(0) {
+           #ifdef _MSC_VER
+           InitializeCriticalSection(&mutex_);
+           #endif
+        }
+
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
@@ -223,9 +234,14 @@ class Worker {
   explicit Worker(BlockingCounter* counter_to_decrement_when_ready)
       : task_(nullptr),
         state_cond_(PTHREAD_COND_INITIALIZER),
+        #ifndef _MSC_VER
         state_mutex_(PTHREAD_MUTEX_INITIALIZER),
+        #endif
         state_(State::ThreadStartup),
         counter_to_decrement_when_ready_(counter_to_decrement_when_ready) {
+        #ifdef _MSC_VER
+        InitializeCriticalSection(&state_mutex_);
+        #endif
     pthread_create(&thread_, nullptr, ThreadFunc, this);
   }
 
@@ -550,8 +566,15 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
     // This is expensive to query so we do it only once.
     // Too bad for dynamicness. Also, we dont use the c++11 standard getter
     // because Google's coding style currently bans #include <thread_>.
+    #ifdef _MSC_VER
+    SYSTEM_INFO info;
+    GetSystemInfo(&info);
+    static const int hardware_threads_count =
+        static_cast<int>(info.dwNumberOfProcessors);
+    #else
     static const int hardware_threads_count =
         static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
+    #endif
 
     max_count = hardware_threads_count;
   }
